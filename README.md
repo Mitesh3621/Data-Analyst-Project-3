@@ -54,7 +54,7 @@ By analyzing claims data across multiple dimensions — department, insurer, vis
 
 ## Dashboard Snapshot
 
-> *(Add a screenshot of the dashboard here after deploying)*
+> *<img width="1920" height="1080" alt="Image" src="https://github.com/user-attachments/assets/f82b2ae8-6bd2-45d8-9b3c-8cac1d1b4721" />*
 
 ---
 
