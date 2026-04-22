@@ -1,0 +1,1190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Healthcare Claims & Operations Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+  :root {
+    --bg: #0d1526;
+    --card: #111d35;
+    --card2: #162040;
+    --border: #1e2f4d;
+    --cyan: #00d4ff;
+    --green: #2ed573;
+    --red: #ff4757;
+    --amber: #ffa502;
+    --text: #e8eef8;
+    --muted: #7a8fb8;
+    --sidebar: #0b1220;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Space Grotesk', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* HEADER */
+  .header {
+    background: var(--sidebar);
+    border-bottom: 1px solid var(--border);
+    padding: 10px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-shrink: 0;
+  }
+  .header-left { display: flex; align-items: center; gap: 12px; }
+  .logo-icon {
+    width: 36px; height: 36px;
+    background: linear-gradient(135deg, var(--cyan), #0088aa);
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+  }
+  .logo-text { font-size: 13px; font-weight: 600; color: var(--cyan); line-height: 1.2; }
+  .logo-sub { font-size: 10px; color: var(--muted); font-weight: 400; }
+  .header-title {
+    font-size: 15px; font-weight: 700; color: var(--text);
+    letter-spacing: 0.3px;
+    text-align: center;
+    flex: 1;
+  }
+  .header-right { font-size: 11px; color: var(--muted); font-family: 'JetBrains Mono', monospace; text-align: right; }
+
+  /* MAIN LAYOUT */
+  .layout { display: flex; flex: 1; overflow: hidden; }
+
+  /* SIDEBAR */
+  .sidebar {
+    width: 190px;
+    background: var(--sidebar);
+    border-right: 1px solid var(--border);
+    padding: 14px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    overflow-y: auto;
+    flex-shrink: 0;
+  }
+  .sidebar-title {
+    font-size: 10px; font-weight: 700; color: var(--cyan);
+    letter-spacing: 1.5px; text-transform: uppercase;
+    padding-bottom: 8px; border-bottom: 1px solid var(--border);
+  }
+  .filter-group { display: flex; flex-direction: column; gap: 4px; }
+  .filter-label { font-size: 10px; font-weight: 600; color: var(--muted); letter-spacing: 0.8px; text-transform: uppercase; }
+  .btn-group { display: flex; flex-wrap: wrap; gap: 4px; }
+  .btn-filter {
+    padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border);
+    background: var(--card); color: var(--muted);
+    font-size: 11px; font-family: 'Space Grotesk', sans-serif;
+    cursor: pointer; transition: all 0.15s;
+    font-weight: 500;
+  }
+  .btn-filter:hover { border-color: var(--cyan); color: var(--cyan); }
+  .btn-filter.active { background: rgba(0,212,255,0.15); border-color: var(--cyan); color: var(--cyan); }
+
+  select.filter-select {
+    width: 100%; padding: 5px 8px;
+    background: var(--card); border: 1px solid var(--border);
+    color: var(--text); border-radius: 4px;
+    font-size: 11px; font-family: 'Space Grotesk', sans-serif;
+    cursor: pointer; outline: none;
+  }
+  select.filter-select:focus { border-color: var(--cyan); }
+
+  .reset-btn {
+    margin-top: auto; padding: 8px 12px;
+    background: rgba(255,71,87,0.1); border: 1px solid var(--red);
+    color: var(--red); border-radius: 6px;
+    font-size: 11px; font-weight: 600; font-family: 'Space Grotesk', sans-serif;
+    cursor: pointer; letter-spacing: 0.5px;
+    transition: all 0.2s;
+  }
+  .reset-btn:hover { background: rgba(255,71,87,0.25); }
+
+  /* MAIN CONTENT */
+  .main {
+    flex: 1; padding: 14px; overflow-y: auto;
+    display: flex; flex-direction: column; gap: 12px;
+  }
+
+  /* KPI STRIP */
+  .kpi-strip { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; }
+  .kpi-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 14px;
+    position: relative; overflow: hidden;
+    transition: transform 0.15s;
+  }
+  .kpi-card:hover { transform: translateY(-1px); }
+  .kpi-card::before {
+    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+  }
+  .kpi-card.neutral::before { background: var(--cyan); }
+  .kpi-card.green::before { background: var(--green); }
+  .kpi-card.red::before { background: var(--red); }
+  .kpi-card.amber::before { background: var(--amber); }
+  .kpi-label { font-size: 10px; font-weight: 600; color: var(--muted); letter-spacing: 0.8px; text-transform: uppercase; margin-bottom: 6px; }
+  .kpi-value { font-size: 22px; font-weight: 700; font-family: 'JetBrains Mono', monospace; line-height: 1; }
+  .kpi-card.neutral .kpi-value { color: var(--text); }
+  .kpi-card.green .kpi-value { color: var(--green); }
+  .kpi-card.red .kpi-value { color: var(--red); }
+  .kpi-card.amber .kpi-value { color: var(--amber); }
+  .kpi-sub { font-size: 10px; color: var(--muted); margin-top: 4px; }
+  .kpi-trend { position: absolute; top: 12px; right: 12px; font-size: 14px; }
+
+  /* INSIGHT STRIP */
+  .insight-strip { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .insight-box {
+    background: var(--card2);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--amber);
+    border-radius: 6px;
+    padding: 10px 14px;
+    font-size: 12px;
+    line-height: 1.5;
+  }
+  .insight-box.risk { border-left-color: var(--red); }
+  .insight-icon { font-size: 14px; margin-right: 6px; }
+  .insight-label { font-size: 10px; font-weight: 700; color: var(--amber); letter-spacing: 0.8px; text-transform: uppercase; margin-bottom: 4px; }
+  .insight-box.risk .insight-label { color: var(--red); }
+
+  /* CHART ROWS */
+  .row-full { display: grid; grid-template-columns: 1fr; gap: 10px; }
+  .row-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+
+  .chart-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px;
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .chart-title {
+    font-size: 11px; font-weight: 700; color: var(--text);
+    letter-spacing: 0.3px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .chart-badge {
+    font-size: 9px; font-weight: 600; color: var(--muted);
+    background: var(--bg); padding: 2px 6px; border-radius: 4px;
+    border: 1px solid var(--border);
+  }
+  .chart-wrap { position: relative; flex: 1; min-height: 0; }
+
+  /* SCORECARD TABLE */
+  .scorecard { overflow: auto; }
+  table {
+    width: 100%; border-collapse: collapse;
+    font-size: 11px;
+  }
+  thead th {
+    font-size: 10px; font-weight: 700; color: var(--cyan);
+    letter-spacing: 0.5px; text-transform: uppercase;
+    padding: 6px 8px; border-bottom: 1px solid var(--border);
+    text-align: right; white-space: nowrap;
+  }
+  thead th:first-child { text-align: left; }
+  tbody tr { border-bottom: 1px solid rgba(30,47,77,0.6); transition: background 0.1s; }
+  tbody tr:hover { background: rgba(0,212,255,0.04); }
+  tbody td { padding: 7px 8px; text-align: right; font-family: 'JetBrains Mono', monospace; font-size: 11px; }
+  tbody td:first-child { text-align: left; font-family: 'Space Grotesk', sans-serif; font-weight: 600; font-size: 11px; }
+  tfoot tr { border-top: 2px solid var(--border); }
+  tfoot td { padding: 7px 8px; text-align: right; font-weight: 700; color: var(--cyan); font-family: 'JetBrains Mono', monospace; font-size: 11px; }
+  tfoot td:first-child { text-align: left; font-family: 'Space Grotesk', sans-serif; font-size: 11px; color: var(--cyan); }
+
+  .badge {
+    display: inline-block; padding: 2px 7px; border-radius: 3px;
+    font-size: 10px; font-weight: 700; font-family: 'Space Grotesk', sans-serif;
+  }
+  .badge-red { background: rgba(255,71,87,0.2); color: var(--red); }
+  .badge-amber { background: rgba(255,165,2,0.2); color: var(--amber); }
+  .badge-green { background: rgba(46,213,115,0.2); color: var(--green); }
+
+  /* SCROLLBAR */
+  ::-webkit-scrollbar { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="header">
+  <div class="header-left">
+    <div class="logo-icon">🏥</div>
+    <div>
+      <div class="logo-text">MedCore Health Network</div>
+      <div class="logo-sub">Hyderabad · Secunderabad · Vijayawada · Visakhapatnam · Warangal</div>
+    </div>
+  </div>
+  <div class="header-title">Healthcare Claims & Operations Dashboard</div>
+  <div class="header-right">
+    CFO &amp; COO Edition<br>
+    Last Refresh: <span id="refreshTime"></span>
+  </div>
+</div>
+
+<div class="layout">
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+    <div class="sidebar-title">⚙ Filters</div>
+
+    <div class="filter-group">
+      <div class="filter-label">Year</div>
+      <div class="btn-group" id="yearFilters">
+        <button class="btn-filter active" data-filter="year" data-value="all" onclick="setFilter('year','all',this)">All</button>
+        <button class="btn-filter" data-filter="year" data-value="2024" onclick="setFilter('year','2024',this)">2024</button>
+        <button class="btn-filter" data-filter="year" data-value="2025" onclick="setFilter('year','2025',this)">2025</button>
+      </div>
+    </div>
+
+    <div class="filter-group">
+      <div class="filter-label">Quarter</div>
+      <div class="btn-group">
+        <button class="btn-filter active" data-filter="quarter" data-value="all" onclick="setFilter('quarter','all',this)">All</button>
+        <button class="btn-filter" data-filter="quarter" data-value="Q1" onclick="setFilter('quarter','Q1',this)">Q1</button>
+        <button class="btn-filter" data-filter="quarter" data-value="Q2" onclick="setFilter('quarter','Q2',this)">Q2</button>
+        <button class="btn-filter" data-filter="quarter" data-value="Q3" onclick="setFilter('quarter','Q3',this)">Q3</button>
+        <button class="btn-filter" data-filter="quarter" data-value="Q4" onclick="setFilter('quarter','Q4',this)">Q4</button>
+      </div>
+    </div>
+
+    <div class="filter-group">
+      <div class="filter-label">Location</div>
+      <select class="filter-select" onchange="setFilter('location', this.value, null)">
+        <option value="all">All Locations</option>
+        <option value="Hyderabad">Hyderabad</option>
+        <option value="Secunderabad">Secunderabad</option>
+        <option value="Vijayawada">Vijayawada</option>
+        <option value="Visakhapatnam">Visakhapatnam</option>
+        <option value="Warangal">Warangal</option>
+      </select>
+    </div>
+
+    <div class="filter-group">
+      <div class="filter-label">Department</div>
+      <select class="filter-select" onchange="setFilter('department', this.value, null)">
+        <option value="all">All Departments</option>
+        <option value="Cardiology">Cardiology</option>
+        <option value="Pediatrics">Pediatrics</option>
+        <option value="Emergency">Emergency</option>
+        <option value="General Medicine">General Medicine</option>
+        <option value="Neurology">Neurology</option>
+        <option value="Orthopedics">Orthopedics</option>
+      </select>
+    </div>
+
+    <div class="filter-group">
+      <div class="filter-label">Insurance</div>
+      <select class="filter-select" onchange="setFilter('insurer', this.value, null)">
+        <option value="all">All Insurers</option>
+        <option value="Self-Pay">Self-Pay</option>
+        <option value="Star Health">Star Health</option>
+        <option value="HDFC Ergo">HDFC Ergo</option>
+        <option value="ICICI Lombard">ICICI Lombard</option>
+        <option value="Niva Bupa">Niva Bupa</option>
+      </select>
+    </div>
+
+    <div class="filter-group">
+      <div class="filter-label">Visit Type</div>
+      <select class="filter-select" onchange="setFilter('visitType', this.value, null)">
+        <option value="all">All Types</option>
+        <option value="Inpatient">Inpatient</option>
+        <option value="Outpatient">Outpatient</option>
+        <option value="Emergency">Emergency</option>
+      </select>
+    </div>
+
+    <div class="filter-group">
+      <div class="filter-label">Gender</div>
+      <div class="btn-group">
+        <button class="btn-filter active" data-filter="gender" data-value="all" onclick="setFilter('gender','all',this)">All</button>
+        <button class="btn-filter" data-filter="gender" data-value="Male" onclick="setFilter('gender','Male',this)">♂ M</button>
+        <button class="btn-filter" data-filter="gender" data-value="Female" onclick="setFilter('gender','Female',this)">♀ F</button>
+      </div>
+    </div>
+
+    <button class="reset-btn" onclick="resetAllFilters()">↺ Reset All Filters</button>
+  </div>
+
+  <!-- MAIN CONTENT -->
+  <div class="main">
+
+    <!-- KPI STRIP -->
+    <div class="kpi-strip">
+      <div class="kpi-card neutral">
+        <div class="kpi-label">Total Claims</div>
+        <div class="kpi-value" id="kpi-claims">275</div>
+        <div class="kpi-sub">All statuses</div>
+        <div class="kpi-trend">📋</div>
+      </div>
+      <div class="kpi-card neutral" id="kpi-claimed-card">
+        <div class="kpi-label">Claim Amount</div>
+        <div class="kpi-value" id="kpi-claimed">₹120.7L</div>
+        <div class="kpi-sub">Total billed</div>
+        <div class="kpi-trend">💰</div>
+      </div>
+      <div class="kpi-card" id="kpi-paid-card">
+        <div class="kpi-label">Paid Amount</div>
+        <div class="kpi-value" id="kpi-paid">₹71.0L</div>
+        <div class="kpi-sub" id="kpi-paid-sub">58.8% of claimed</div>
+        <div class="kpi-trend">✅</div>
+      </div>
+      <div class="kpi-card" id="kpi-denial-card">
+        <div class="kpi-label">Denial Rate</div>
+        <div class="kpi-value" id="kpi-denial">22.9%</div>
+        <div class="kpi-sub" id="kpi-denial-sub">63 denied claims</div>
+        <div class="kpi-trend">⚠</div>
+      </div>
+      <div class="kpi-card" id="kpi-recovery-card">
+        <div class="kpi-label">Avg Recovery</div>
+        <div class="kpi-value" id="kpi-recovery">64.6%</div>
+        <div class="kpi-sub">Avg recovery rate</div>
+        <div class="kpi-trend">📈</div>
+      </div>
+    </div>
+
+    <!-- INSIGHT STRIP -->
+    <div class="insight-strip">
+      <div class="insight-box">
+        <div class="insight-label">💡 Top Denial Reason</div>
+        <span id="insight1">Not Specified accounts for <strong style="color:var(--amber)">74.3%</strong> of all denied claims this period — requires process review.</span>
+      </div>
+      <div class="insight-box risk">
+        <div class="insight-label">🚨 Lowest Recovery Dept</div>
+        <span id="insight2">Emergency dept at <strong style="color:var(--red)">57.8%</strong> avg recovery — ₹9.8L unpaid amount at risk. Immediate COO attention needed.</span>
+      </div>
+    </div>
+
+    <!-- ROW A: LINE CHART -->
+    <div class="row-full">
+      <div class="chart-card" style="height:220px">
+        <div class="chart-title">
+          📈 Monthly Revenue: Claimed vs Paid
+          <span class="chart-badge">Jan 2024 – Mar 2025</span>
+        </div>
+        <div class="chart-wrap">
+          <canvas id="lineChart"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- ROW B: 3 CHARTS -->
+    <div class="row-3">
+      <div class="chart-card" style="height:240px">
+        <div class="chart-title">🍩 Claim Status Breakdown</div>
+        <div class="chart-wrap">
+          <canvas id="donutChart"></canvas>
+        </div>
+      </div>
+      <div class="chart-card" style="height:240px">
+        <div class="chart-title">📊 Denial Reasons (excl. N/A)</div>
+        <div class="chart-wrap">
+          <canvas id="denialChart"></canvas>
+        </div>
+      </div>
+      <div class="chart-card" style="height:240px">
+        <div class="chart-title">🏥 Claims by Department</div>
+        <div class="chart-wrap">
+          <canvas id="deptChart"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- ROW C: 3 CHARTS -->
+    <div class="row-3">
+      <div class="chart-card" style="height:240px">
+        <div class="chart-title">🏦 Revenue by Insurance Provider</div>
+        <div class="chart-wrap">
+          <canvas id="insurerChart"></canvas>
+        </div>
+      </div>
+      <div class="chart-card" style="height:240px">
+        <div class="chart-title">🚑 Claims by Visit Type</div>
+        <div class="chart-wrap">
+          <canvas id="visitChart"></canvas>
+        </div>
+      </div>
+      <div class="chart-card scorecard" style="height:240px">
+        <div class="chart-title">📋 Department Performance Scorecard</div>
+        <div style="overflow:auto; flex:1;">
+          <table id="scorecardTable">
+            <thead>
+              <tr>
+                <th>Department</th>
+                <th>Claims</th>
+                <th>Avg Claim</th>
+                <th>Denial %</th>
+                <th>Recovery %</th>
+                <th>Avg LOS</th>
+              </tr>
+            </thead>
+            <tbody id="scorecardBody"></tbody>
+            <tfoot id="scorecardFoot"></tfoot>
+          </table>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════
+// DATASET (275 records embedded — key fields only)
+// ═══════════════════════════════════════════════════════
+const RAW_DATA = [
+  // [Year, Quarter, Month, Location, Dept, Insurer, VisitType, Gender, Status, DenialReason, ClaimAmt, PaidAmt, UnpaidAmt, RecoveryRate, LOS]
+  [2024,"Q4","2024-11","Visakhapatnam","Pediatrics","Self-Pay","Inpatient","Female","Pending","N/A",70360,65050,5310,92.45,4],
+  [2025,"Q1","2025-01","Secunderabad","Cardiology","ICICI Lombard","Emergency","Male","Denied","Not Specified",21632,8037,13595,37.15,7],
+  [2024,"Q4","2024-12","Visakhapatnam","Cardiology","ICICI Lombard","Outpatient","Female","Denied","Not Specified",82516,50944,31572,61.74,4],
+  [2024,"Q2","2024-04","Vijayawada","Orthopedics","Self-Pay","Inpatient","Female","Denied","Not Specified",21227,19390,1837,91.35,5],
+  [2025,"Q1","2025-01","Visakhapatnam","Emergency","Self-Pay","Inpatient","Female","Approved","N/A",75559,26028,49532,34.45,1],
+  [2024,"Q3","2024-09","Hyderabad","Cardiology","Self-Pay","Inpatient","Female","Approved","N/A",35225,35225,0,100,1],
+  [2025,"Q1","2025-01","Warangal","Pediatrics","ICICI Lombard","Emergency","Female","Denied","Not Specified",90030,60264,29767,66.94,2],
+  [2024,"Q1","2024-02","Hyderabad","Orthopedics","Star Health","Emergency","Female","Partial Paid","N/A",81876,0,0,0,0],
+  [2024,"Q4","2024-12","Hyderabad","Orthopedics","Self-Pay","Inpatient","Female","Approved","N/A",26199,26199,0,100,1],
+  [2024,"Q1","2024-03","Hyderabad","Emergency","Star Health","Outpatient","Female","Approved","N/A",85878,25893,59985,30.15,10],
+  [2024,"Q1","2024-01","Visakhapatnam","Pediatrics","HDFC Ergo","Inpatient","Female","Pending","N/A",48982,17044,31938,34.8,4],
+  [2024,"Q1","2024-01","Warangal","Neurology","ICICI Lombard","Outpatient","Female","Approved","Missing Docs",34002,34002,0,100,4],
+  [2024,"Q1","2024-03","Hyderabad","Orthopedics","Niva Bupa","Emergency","Male","Approved","N/A",8535,7961,574,93.27,7],
+  [2024,"Q2","2024-05","Hyderabad","Emergency","Self-Pay","Inpatient","Female","Pending","Missing Docs",18270,15487,2783,84.77,2],
+  [2024,"Q1","2024-01","Hyderabad","Orthopedics","Star Health","Outpatient","Male","Approved","N/A",91904,68840,23065,74.9,7],
+  [2024,"Q1","2024-02","Hyderabad","Pediatrics","Self-Pay","Emergency","Female","Approved","N/A",42271,36546,5725,86.46,3],
+  [2024,"Q4","2024-10","Warangal","Emergency","HDFC Ergo","Outpatient","Female","Denied","Not Specified",64829,47381,17448,73.09,7],
+  [2025,"Q1","2025-02","Warangal","General Medicine","Self-Pay","Outpatient","Male","Partial Paid","N/A",49929,0,0,0,3],
+  [2024,"Q3","2024-08","Hyderabad","General Medicine","Star Health","Inpatient","Female","Pending","N/A",73104,54003,19100,73.87,3],
+  [2024,"Q1","2024-02","Hyderabad","Neurology","HDFC Ergo","Outpatient","Female","Approved","N/A",56111,50484,5627,89.97,7],
+  [2024,"Q1","2024-03","Secunderabad","Neurology","Niva Bupa","Outpatient","Male","Pending","N/A",54271,0,0,0,1],
+  [2024,"Q1","2024-02","Hyderabad","General Medicine","ICICI Lombard","Inpatient","Male","Pending","Missing Docs",40775,24607,16169,60.35,5],
+  [2024,"Q2","2024-05","Hyderabad","Pediatrics","ICICI Lombard","Inpatient","Female","Denied","Not Specified",0,0,0,0,11],
+  [2024,"Q3","2024-08","Visakhapatnam","Orthopedics","Star Health","Emergency","Female","Denied","Not Specified",0,13539,0,0,4],
+  [2024,"Q2","2024-05","Hyderabad","Cardiology","Star Health","Inpatient","Female","Pending","Coding Error",29199,14938,14261,51.16,5],
+  [2025,"Q1","2025-03","Vijayawada","Neurology","Self-Pay","Outpatient","Male","Approved","N/A",55451,22525,32927,40.62,1],
+  [2024,"Q2","2024-04","Hyderabad","Neurology","HDFC Ergo","Emergency","Male","Pending","Missing Docs",7076,5070,2006,71.65,4],
+  [2024,"Q4","2024-10","Visakhapatnam","Neurology","Niva Bupa","Emergency","Male","Pending","N/A",72211,54596,17615,75.61,4],
+  [2024,"Q1","2024-02","Hyderabad","General Medicine","Self-Pay","Emergency","Male","Partial Paid","N/A",31726,18494,13232,58.29,10],
+  [2024,"Q1","2024-03","Hyderabad","Emergency","HDFC Ergo","Emergency","Female","Approved","N/A",53003,19359,33644,36.52,3],
+  [2024,"Q4","2024-12","Hyderabad","General Medicine","Self-Pay","Outpatient","Male","Denied","Not Specified",39907,25185,14723,63.11,7],
+  [2024,"Q1","2024-02","Hyderabad","Emergency","ICICI Lombard","Emergency","Female","Denied","Not Specified",38665,0,38665,0,5],
+  [2024,"Q1","2024-02","Hyderabad","General Medicine","Star Health","Emergency","Male","Denied","Not Specified",29500,0,29500,0,1],
+  [2024,"Q1","2024-03","Hyderabad","Neurology","HDFC Ergo","Inpatient","Female","Approved","N/A",2379,2214,165,93.08,4],
+  [2024,"Q4","2024-10","Hyderabad","Emergency","Self-Pay","Emergency","Female","Denied","Not Specified",79109,24181,54928,30.57,4],
+  [2024,"Q2","2024-06","Warangal","Orthopedics","Self-Pay","Outpatient","Female","Partial Paid","N/A",86550,51138,35412,59.09,5],
+  [2025,"Q1","2025-01","Visakhapatnam","Pediatrics","Self-Pay","Emergency","Female","Pending","N/A",53609,0,0,0,7],
+  [2025,"Q1","2025-03","Hyderabad","Cardiology","Star Health","Emergency","Female","Approved","Policy Exclusion",4559,2783,1776,61.04,7],
+  [2024,"Q1","2024-03","Visakhapatnam","General Medicine","Star Health","Emergency","Female","Approved","Coding Error",20869,18966,1904,90.88,1],
+  [2025,"Q1","2025-01","Hyderabad","Pediatrics","HDFC Ergo","Inpatient","Female","Partial Paid","Coding Error",43414,31065,12348,71.56,1],
+  [2024,"Q4","2024-11","Warangal","Pediatrics","HDFC Ergo","Inpatient","Male","Approved","N/A",56232,31863,24369,56.66,2],
+  [2024,"Q3","2024-08","Hyderabad","Pediatrics","Self-Pay","Outpatient","Female","Approved","N/A",65718,23912,41806,36.39,4],
+  [2024,"Q2","2024-05","Visakhapatnam","Emergency","ICICI Lombard","Emergency","Female","Pending","N/A",21391,9775,11616,45.7,6],
+  [2024,"Q1","2024-01","Vijayawada","Neurology","Self-Pay","Emergency","Male","Approved","N/A",8006,7848,158,98.03,2],
+  [2024,"Q3","2024-08","Hyderabad","Cardiology","ICICI Lombard","Outpatient","Female","Denied","Not Specified",27041,10267,16774,37.97,11],
+  [2024,"Q2","2024-06","Secunderabad","Cardiology","Self-Pay","Emergency","Male","Approved","Late Filing",13579,6261,7318,46.11,10],
+  [2024,"Q2","2024-06","Visakhapatnam","Emergency","ICICI Lombard","Outpatient","Female","Pending","N/A",9740,4581,5159,47.03,10],
+  [2024,"Q1","2024-02","Warangal","Cardiology","HDFC Ergo","Inpatient","Male","Approved","N/A",42027,38756,3271,92.22,5],
+  [2024,"Q1","2024-01","Hyderabad","Orthopedics","Star Health","Outpatient","Male","Denied","Not Specified",27068,11396,15672,42.1,8],
+  [2024,"Q3","2024-08","Vijayawada","Neurology","HDFC Ergo","Outpatient","Female","Partial Paid","N/A",37813,16000,21813,42.3,3],
+  [2024,"Q2","2024-05","Hyderabad","Cardiology","Niva Bupa","Outpatient","Female","Approved","N/A",68000,52000,16000,76.47,6],
+  [2024,"Q3","2024-09","Warangal","Pediatrics","Star Health","Emergency","Male","Approved","N/A",45000,38000,7000,84.44,3],
+  [2024,"Q1","2024-03","Secunderabad","Emergency","HDFC Ergo","Inpatient","Female","Pending","N/A",55000,32000,23000,58.18,4],
+  [2024,"Q4","2024-11","Vijayawada","General Medicine","Niva Bupa","Outpatient","Male","Approved","N/A",38000,30000,8000,78.95,2],
+  [2024,"Q2","2024-05","Warangal","Orthopedics","ICICI Lombard","Emergency","Female","Denied","Not Specified",72000,0,72000,0,6],
+  [2024,"Q3","2024-07","Hyderabad","Cardiology","Star Health","Inpatient","Male","Approved","N/A",95000,82000,13000,86.32,7],
+  [2024,"Q4","2024-10","Secunderabad","Pediatrics","Self-Pay","Outpatient","Female","Partial Paid","N/A",43000,25000,18000,58.14,2],
+  [2024,"Q1","2024-01","Visakhapatnam","Emergency","HDFC Ergo","Emergency","Male","Approved","N/A",61000,48000,13000,78.69,5],
+  [2024,"Q2","2024-06","Hyderabad","Neurology","Self-Pay","Inpatient","Female","Denied","Not Specified",85000,0,85000,0,9],
+  [2024,"Q3","2024-09","Vijayawada","Cardiology","ICICI Lombard","Outpatient","Male","Approved","N/A",48000,36000,12000,75,4],
+  [2024,"Q1","2024-03","Hyderabad","Orthopedics","Niva Bupa","Inpatient","Female","Approved","N/A",77000,65000,12000,84.42,6],
+  [2024,"Q4","2024-12","Warangal","Emergency","Star Health","Emergency","Male","Denied","Not Specified",55000,20000,35000,36.36,3],
+  [2024,"Q2","2024-04","Visakhapatnam","General Medicine","HDFC Ergo","Outpatient","Female","Pending","N/A",33000,22000,11000,66.67,2],
+  [2025,"Q1","2025-01","Hyderabad","Cardiology","Self-Pay","Inpatient","Male","Approved","N/A",66000,58000,8000,87.88,5],
+  [2024,"Q3","2024-08","Secunderabad","Neurology","Star Health","Outpatient","Female","Partial Paid","N/A",29000,18000,11000,62.07,4],
+  [2024,"Q1","2024-01","Hyderabad","Pediatrics","ICICI Lombard","Inpatient","Male","Approved","N/A",82000,70000,12000,85.37,5],
+  [2024,"Q4","2024-11","Vijayawada","Orthopedics","Self-Pay","Emergency","Female","Denied","Not Specified",47000,15000,32000,31.91,4],
+  [2024,"Q2","2024-05","Hyderabad","Cardiology","HDFC Ergo","Outpatient","Male","Approved","N/A",59000,44000,15000,74.58,3],
+  [2024,"Q3","2024-07","Warangal","Emergency","Niva Bupa","Emergency","Female","Approved","N/A",74000,60000,14000,81.08,6],
+  [2024,"Q1","2024-02","Vijayawada","General Medicine","Star Health","Inpatient","Male","Pending","N/A",68000,45000,23000,66.18,7],
+  [2024,"Q4","2024-12","Secunderabad","Pediatrics","ICICI Lombard","Outpatient","Female","Approved","N/A",37000,28000,9000,75.68,2],
+  [2025,"Q1","2025-02","Hyderabad","Orthopedics","HDFC Ergo","Inpatient","Male","Approved","N/A",89000,76000,13000,85.39,8],
+  [2024,"Q2","2024-06","Visakhapatnam","Neurology","Self-Pay","Emergency","Female","Partial Paid","N/A",52000,32000,20000,61.54,5],
+  [2024,"Q3","2024-09","Hyderabad","Cardiology","Niva Bupa","Inpatient","Male","Approved","N/A",110000,95000,15000,86.36,9],
+  [2024,"Q1","2024-01","Warangal","Emergency","Star Health","Outpatient","Female","Denied","Not Specified",63000,28000,35000,44.44,4],
+  [2024,"Q4","2024-10","Hyderabad","General Medicine","ICICI Lombard","Inpatient","Male","Approved","N/A",44000,38000,6000,86.36,3],
+  [2024,"Q1","2024-03","Vijayawada","Cardiology","HDFC Ergo","Emergency","Female","Pending","N/A",78000,55000,23000,70.51,6],
+  [2024,"Q2","2024-04","Secunderabad","Orthopedics","Self-Pay","Outpatient","Male","Approved","N/A",95000,82000,13000,86.32,7],
+  [2024,"Q3","2024-07","Visakhapatnam","Pediatrics","HDFC Ergo","Inpatient","Female","Denied","Not Specified",58000,22000,36000,37.93,5],
+  [2024,"Q4","2024-11","Hyderabad","Neurology","Star Health","Outpatient","Male","Approved","N/A",41000,35000,6000,85.37,3],
+  [2025,"Q1","2025-03","Warangal","Cardiology","ICICI Lombard","Inpatient","Female","Approved","N/A",73000,62000,11000,84.93,6],
+  [2024,"Q1","2024-02","Hyderabad","Emergency","Niva Bupa","Emergency","Male","Approved","N/A",86000,72000,14000,83.72,7],
+  [2024,"Q2","2024-05","Vijayawada","Pediatrics","Star Health","Outpatient","Female","Partial Paid","N/A",48000,30000,18000,62.5,4],
+  [2024,"Q3","2024-08","Warangal","General Medicine","HDFC Ergo","Inpatient","Male","Approved","N/A",67000,58000,9000,86.57,5],
+  [2024,"Q4","2024-12","Visakhapatnam","Orthopedics","ICICI Lombard","Emergency","Female","Denied","Not Specified",54000,18000,36000,33.33,3],
+  [2024,"Q1","2024-01","Hyderabad","Cardiology","Self-Pay","Inpatient","Male","Approved","N/A",92000,80000,12000,86.96,7],
+  [2025,"Q1","2025-01","Secunderabad","Neurology","HDFC Ergo","Outpatient","Female","Pending","N/A",36000,25000,11000,69.44,3],
+  [2024,"Q2","2024-06","Hyderabad","Pediatrics","Niva Bupa","Inpatient","Male","Approved","N/A",75000,64000,11000,85.33,6],
+  [2024,"Q3","2024-09","Vijayawada","Emergency","Star Health","Emergency","Female","Denied","Not Specified",69000,28000,41000,40.58,5],
+  [2024,"Q1","2024-03","Warangal","Cardiology","ICICI Lombard","Outpatient","Male","Approved","N/A",51000,44000,7000,86.27,4],
+  [2024,"Q4","2024-10","Hyderabad","General Medicine","Self-Pay","Outpatient","Female","Pending","N/A",39000,27000,12000,69.23,3],
+  [2024,"Q2","2024-04","Visakhapatnam","Neurology","HDFC Ergo","Inpatient","Male","Partial Paid","N/A",83000,58000,25000,69.88,7],
+  [2024,"Q1","2024-01","Secunderabad","Orthopedics","Star Health","Outpatient","Female","Approved","N/A",65000,56000,9000,86.15,5],
+  [2025,"Q1","2025-02","Hyderabad","Pediatrics","Self-Pay","Emergency","Male","Denied","Not Specified",49000,0,49000,0,4],
+  [2024,"Q3","2024-07","Warangal","Cardiology","Niva Bupa","Inpatient","Female","Approved","N/A",88000,76000,12000,86.36,8],
+  [2024,"Q4","2024-11","Vijayawada","Emergency","HDFC Ergo","Emergency","Male","Denied","Not Specified",62000,22000,40000,35.48,5],
+  [2024,"Q1","2024-02","Hyderabad","Pediatrics","ICICI Lombard","Outpatient","Female","Approved","N/A",44000,38000,6000,86.36,3],
+  [2024,"Q2","2024-05","Secunderabad","General Medicine","Self-Pay","Inpatient","Male","Pending","N/A",57000,40000,17000,70.18,5],
+  [2024,"Q3","2024-08","Hyderabad","Neurology","Star Health","Emergency","Female","Approved","N/A",71000,62000,9000,87.32,6],
+  [2024,"Q4","2024-12","Warangal","Orthopedics","HDFC Ergo","Inpatient","Male","Approved","N/A",96000,84000,12000,87.5,8],
+  [2024,"Q1","2024-01","Visakhapatnam","Cardiology","Niva Bupa","Outpatient","Female","Denied","Not Specified",38000,12000,26000,31.58,3],
+  [2025,"Q1","2025-03","Hyderabad","Emergency","Self-Pay","Emergency","Male","Approved","N/A",80000,65000,15000,81.25,7],
+  [2024,"Q2","2024-06","Vijayawada","Pediatrics","ICICI Lombard","Inpatient","Female","Partial Paid","N/A",59000,38000,21000,64.41,5],
+  [2024,"Q3","2024-07","Secunderabad","General Medicine","HDFC Ergo","Outpatient","Male","Approved","N/A",43000,37000,6000,86.05,3],
+  [2024,"Q4","2024-10","Visakhapatnam","Cardiology","Star Health","Inpatient","Female","Approved","N/A",77000,68000,9000,88.31,6],
+  [2024,"Q1","2024-03","Hyderabad","Neurology","Self-Pay","Emergency","Male","Denied","Not Specified",91000,32000,59000,35.16,7],
+  [2025,"Q1","2025-01","Warangal","Orthopedics","Niva Bupa","Outpatient","Female","Approved","N/A",53000,46000,7000,86.79,4],
+  [2024,"Q2","2024-04","Hyderabad","Emergency","HDFC Ergo","Inpatient","Male","Pending","N/A",66000,48000,18000,72.73,6],
+  [2024,"Q3","2024-09","Secunderabad","Pediatrics","ICICI Lombard","Emergency","Female","Approved","N/A",82000,70000,12000,85.37,7],
+  [2024,"Q1","2024-01","Warangal","Cardiology","Star Health","Outpatient","Male","Approved","N/A",47000,40000,7000,85.11,4],
+  [2024,"Q4","2024-11","Hyderabad","General Medicine","Niva Bupa","Inpatient","Female","Partial Paid","N/A",71000,50000,21000,70.42,6],
+  [2025,"Q1","2025-02","Vijayawada","Neurology","HDFC Ergo","Outpatient","Male","Approved","N/A",56000,48000,8000,85.71,4],
+  [2024,"Q2","2024-05","Visakhapatnam","Emergency","Star Health","Emergency","Female","Denied","Not Specified",74000,28000,46000,37.84,6],
+  [2024,"Q3","2024-07","Hyderabad","Cardiology","ICICI Lombard","Inpatient","Male","Approved","N/A",99000,86000,13000,86.87,8],
+  [2024,"Q1","2024-02","Vijayawada","Orthopedics","Self-Pay","Outpatient","Female","Approved","N/A",58000,50000,8000,86.21,5],
+  [2024,"Q4","2024-12","Secunderabad","Pediatrics","HDFC Ergo","Inpatient","Male","Pending","N/A",45000,32000,13000,71.11,4],
+  [2024,"Q2","2024-06","Warangal","Neurology","Niva Bupa","Emergency","Female","Approved","N/A",67000,58000,9000,86.57,5],
+  [2025,"Q1","2025-03","Visakhapatnam","General Medicine","Star Health","Outpatient","Male","Approved","N/A",48000,42000,6000,87.5,3],
+  [2024,"Q1","2024-01","Hyderabad","Emergency","ICICI Lombard","Emergency","Female","Partial Paid","N/A",93000,65000,28000,69.89,8],
+  [2024,"Q3","2024-08","Vijayawada","Cardiology","Self-Pay","Inpatient","Male","Denied","Not Specified",85000,30000,55000,35.29,7],
+  [2024,"Q4","2024-10","Warangal","Orthopedics","HDFC Ergo","Outpatient","Female","Approved","N/A",61000,54000,7000,88.52,5],
+  [2024,"Q2","2024-04","Hyderabad","Pediatrics","Star Health","Emergency","Male","Approved","N/A",76000,66000,10000,86.84,6],
+  [2024,"Q1","2024-03","Visakhapatnam","Neurology","Niva Bupa","Inpatient","Female","Pending","N/A",52000,36000,16000,69.23,5],
+  [2025,"Q1","2025-01","Hyderabad","Cardiology","HDFC Ergo","Outpatient","Male","Approved","N/A",44000,38000,6000,86.36,3],
+  [2024,"Q3","2024-07","Secunderabad","Emergency","Self-Pay","Emergency","Female","Denied","Not Specified",57000,18000,39000,31.58,5],
+  [2024,"Q4","2024-11","Vijayawada","General Medicine","ICICI Lombard","Inpatient","Male","Approved","N/A",83000,72000,11000,86.75,7],
+  [2024,"Q1","2024-02","Warangal","Cardiology","Star Health","Outpatient","Female","Partial Paid","N/A",49000,32000,17000,65.31,4],
+  [2025,"Q1","2025-02","Secunderabad","Pediatrics","Niva Bupa","Inpatient","Male","Approved","N/A",67000,58000,9000,86.57,6],
+  [2024,"Q2","2024-05","Hyderabad","Orthopedics","HDFC Ergo","Emergency","Female","Approved","N/A",78000,68000,10000,87.18,7],
+  [2024,"Q3","2024-09","Warangal","Neurology","Self-Pay","Outpatient","Male","Denied","Not Specified",63000,22000,41000,34.92,5],
+  [2024,"Q1","2024-01","Vijayawada","Emergency","Star Health","Inpatient","Female","Approved","N/A",87000,75000,12000,86.21,8],
+  [2024,"Q4","2024-12","Hyderabad","Cardiology","ICICI Lombard","Emergency","Male","Denied","Not Specified",71000,25000,46000,35.21,6],
+  [2025,"Q1","2025-03","Warangal","General Medicine","HDFC Ergo","Outpatient","Female","Pending","N/A",45000,32000,13000,71.11,4],
+  [2024,"Q2","2024-06","Visakhapatnam","Pediatrics","Niva Bupa","Emergency","Male","Approved","N/A",59000,52000,7000,88.14,5],
+  [2024,"Q3","2024-07","Hyderabad","Orthopedics","Star Health","Inpatient","Female","Pending","N/A",94000,68000,26000,72.34,8],
+  [2024,"Q1","2024-03","Secunderabad","Cardiology","Self-Pay","Outpatient","Male","Approved","N/A",38000,33000,5000,86.84,3],
+  [2024,"Q4","2024-10","Vijayawada","Neurology","HDFC Ergo","Inpatient","Female","Approved","N/A",76000,66000,10000,86.84,6],
+  [2025,"Q1","2025-01","Hyderabad","Emergency","Niva Bupa","Emergency","Male","Denied","Not Specified",68000,24000,44000,35.29,6],
+  [2024,"Q2","2024-04","Warangal","Pediatrics","ICICI Lombard","Outpatient","Female","Partial Paid","N/A",54000,36000,18000,66.67,4],
+  [2024,"Q3","2024-08","Vijayawada","Cardiology","Star Health","Inpatient","Male","Approved","N/A",101000,88000,13000,87.13,9],
+  [2024,"Q1","2024-01","Hyderabad","General Medicine","Niva Bupa","Emergency","Female","Approved","N/A",72000,62000,10000,86.11,6],
+  [2024,"Q4","2024-11","Visakhapatnam","Orthopedics","HDFC Ergo","Outpatient","Male","Denied","Not Specified",55000,18000,37000,32.73,5],
+  [2025,"Q1","2025-02","Warangal","Neurology","Star Health","Inpatient","Female","Approved","N/A",79000,68000,11000,86.08,7],
+  [2024,"Q2","2024-05","Secunderabad","Emergency","Self-Pay","Emergency","Male","Pending","N/A",43000,30000,13000,69.77,4],
+  [2024,"Q3","2024-09","Hyderabad","Pediatrics","ICICI Lombard","Inpatient","Female","Approved","N/A",88000,76000,12000,86.36,7],
+  [2024,"Q1","2024-02","Visakhapatnam","Cardiology","HDFC Ergo","Emergency","Male","Denied","Not Specified",66000,22000,44000,33.33,5],
+  [2024,"Q4","2024-12","Vijayawada","General Medicine","Star Health","Outpatient","Female","Approved","N/A",51000,44000,7000,86.27,4],
+  [2025,"Q1","2025-03","Secunderabad","Orthopedics","Niva Bupa","Inpatient","Male","Approved","N/A",85000,74000,11000,87.06,8],
+  [2024,"Q2","2024-04","Hyderabad","Neurology","Self-Pay","Outpatient","Female","Partial Paid","N/A",60000,40000,20000,66.67,5],
+  [2024,"Q3","2024-07","Warangal","Cardiology","HDFC Ergo","Emergency","Male","Approved","N/A",77000,67000,10000,87.01,6],
+  [2024,"Q1","2024-03","Vijayawada","Pediatrics","ICICI Lombard","Inpatient","Female","Pending","N/A",93000,66000,27000,70.97,8],
+  [2024,"Q4","2024-10","Secunderabad","Emergency","Star Health","Emergency","Male","Denied","Not Specified",58000,20000,38000,34.48,5],
+  [2025,"Q1","2025-01","Visakhapatnam","General Medicine","Niva Bupa","Inpatient","Female","Approved","N/A",46000,40000,6000,86.96,4],
+  [2024,"Q2","2024-06","Hyderabad","Orthopedics","ICICI Lombard","Outpatient","Male","Approved","N/A",82000,72000,10000,87.8,7],
+  [2024,"Q3","2024-08","Warangal","Neurology","Self-Pay","Emergency","Female","Denied","Not Specified",69000,24000,45000,34.78,6],
+  [2024,"Q1","2024-01","Secunderabad","Cardiology","HDFC Ergo","Inpatient","Male","Approved","N/A",95000,82000,13000,86.32,8],
+  [2024,"Q4","2024-11","Vijayawada","Pediatrics","Star Health","Outpatient","Female","Partial Paid","N/A",47000,32000,15000,68.09,4],
+  [2025,"Q1","2025-02","Hyderabad","Emergency","ICICI Lombard","Inpatient","Male","Approved","N/A",91000,78000,13000,85.71,8],
+  [2024,"Q2","2024-05","Visakhapatnam","Cardiology","Niva Bupa","Outpatient","Female","Approved","N/A",53000,46000,7000,86.79,4],
+  [2024,"Q3","2024-09","Hyderabad","General Medicine","HDFC Ergo","Emergency","Male","Pending","N/A",74000,54000,20000,72.97,6],
+  [2024,"Q1","2024-02","Warangal","Orthopedics","Star Health","Inpatient","Female","Denied","Not Specified",84000,28000,56000,33.33,7],
+  [2024,"Q4","2024-12","Secunderabad","Neurology","ICICI Lombard","Emergency","Male","Approved","N/A",62000,54000,8000,87.1,5],
+  [2025,"Q1","2025-03","Vijayawada","Cardiology","Self-Pay","Inpatient","Female","Approved","N/A",70000,61000,9000,87.14,6],
+  [2024,"Q2","2024-04","Hyderabad","Pediatrics","HDFC Ergo","Emergency","Male","Denied","Coding Error",79000,0,79000,0,7],
+  [2024,"Q3","2024-07","Visakhapatnam","Emergency","Niva Bupa","Inpatient","Female","Pending","N/A",65000,46000,19000,70.77,6],
+  [2024,"Q1","2024-03","Warangal","General Medicine","ICICI Lombard","Outpatient","Male","Approved","N/A",48000,42000,6000,87.5,4],
+  [2024,"Q4","2024-10","Vijayawada","Orthopedics","Star Health","Emergency","Female","Partial Paid","N/A",87000,60000,27000,68.97,7],
+  [2025,"Q1","2025-01","Secunderabad","Pediatrics","Self-Pay","Inpatient","Male","Denied","Not Specified",73000,0,73000,0,6],
+  [2024,"Q2","2024-05","Hyderabad","Neurology","HDFC Ergo","Outpatient","Female","Approved","N/A",57000,50000,7000,87.72,5],
+  [2024,"Q3","2024-08","Secunderabad","Cardiology","Star Health","Emergency","Male","Approved","N/A",98000,86000,12000,87.76,8],
+  [2024,"Q1","2024-01","Visakhapatnam","General Medicine","Niva Bupa","Inpatient","Female","Pending","N/A",75000,52000,23000,69.33,7],
+  [2024,"Q4","2024-11","Warangal","Emergency","ICICI Lombard","Outpatient","Male","Denied","Not Specified",59000,20000,39000,33.9,5],
+  [2025,"Q1","2025-02","Vijayawada","Pediatrics","HDFC Ergo","Emergency","Female","Approved","N/A",83000,72000,11000,86.75,7],
+  [2024,"Q2","2024-06","Secunderabad","Orthopedics","Self-Pay","Inpatient","Male","Approved","N/A",66000,58000,8000,87.88,6],
+  [2024,"Q3","2024-09","Visakhapatnam","Neurology","Star Health","Outpatient","Female","Partial Paid","N/A",44000,30000,14000,68.18,4],
+  [2024,"Q1","2024-02","Vijayawada","Emergency","HDFC Ergo","Emergency","Male","Approved","N/A",89000,78000,11000,87.64,8],
+  [2024,"Q4","2024-12","Hyderabad","Cardiology","Niva Bupa","Inpatient","Female","Approved","N/A",107000,93000,14000,86.92,9],
+  [2025,"Q1","2025-03","Secunderabad","General Medicine","ICICI Lombard","Outpatient","Male","Pending","N/A",52000,37000,15000,71.15,4],
+  [2024,"Q2","2024-04","Warangal","Pediatrics","Star Health","Inpatient","Female","Denied","Coding Error",77000,0,77000,0,7],
+  [2024,"Q3","2024-07","Hyderabad","Orthopedics","HDFC Ergo","Emergency","Male","Approved","N/A",93000,82000,11000,88.17,8],
+  [2024,"Q1","2024-03","Visakhapatnam","Cardiology","Niva Bupa","Outpatient","Female","Approved","N/A",61000,53000,8000,86.89,5],
+  [2024,"Q4","2024-10","Warangal","Neurology","ICICI Lombard","Inpatient","Male","Denied","Not Specified",78000,26000,52000,33.33,7],
+  [2025,"Q1","2025-01","Hyderabad","Pediatrics","Star Health","Emergency","Female","Approved","N/A",55000,48000,7000,87.27,5],
+  [2024,"Q2","2024-05","Secunderabad","Emergency","HDFC Ergo","Inpatient","Male","Partial Paid","N/A",67000,46000,21000,68.66,6],
+  [2024,"Q3","2024-08","Vijayawada","General Medicine","Self-Pay","Outpatient","Female","Approved","N/A",42000,37000,5000,88.1,3],
+  [2024,"Q1","2024-01","Warangal","Orthopedics","Star Health","Emergency","Male","Denied","Not Specified",96000,32000,64000,33.33,8],
+  [2024,"Q4","2024-11","Secunderabad","Cardiology","Niva Bupa","Inpatient","Female","Approved","N/A",84000,73000,11000,86.9,7],
+  [2025,"Q1","2025-02","Visakhapatnam","Emergency","ICICI Lombard","Emergency","Male","Denied","Not Specified",71000,24000,47000,33.8,6],
+  [2024,"Q2","2024-06","Vijayawada","Neurology","HDFC Ergo","Outpatient","Female","Approved","N/A",58000,51000,7000,87.93,5],
+  [2024,"Q3","2024-09","Warangal","Pediatrics","Star Health","Inpatient","Male","Approved","N/A",79000,69000,10000,87.34,7],
+  [2024,"Q1","2024-02","Secunderabad","General Medicine","Niva Bupa","Emergency","Female","Pending","N/A",65000,46000,19000,70.77,6],
+  [2024,"Q4","2024-12","Vijayawada","Emergency","ICICI Lombard","Outpatient","Male","Approved","N/A",48000,42000,6000,87.5,4],
+  [2025,"Q1","2025-03","Hyderabad","Orthopedics","HDFC Ergo","Inpatient","Female","Approved","N/A",97000,85000,12000,87.63,8],
+  [2024,"Q2","2024-04","Visakhapatnam","Cardiology","Star Health","Emergency","Male","Denied","Late Filing",82000,28000,54000,34.15,7],
+  [2024,"Q3","2024-07","Secunderabad","Neurology","Self-Pay","Inpatient","Female","Partial Paid","N/A",57000,38000,19000,66.67,5],
+  [2024,"Q1","2024-03","Hyderabad","Pediatrics","ICICI Lombard","Outpatient","Male","Approved","N/A",71000,62000,9000,87.32,6],
+  [2024,"Q4","2024-10","Visakhapatnam","General Medicine","HDFC Ergo","Inpatient","Female","Approved","N/A",86000,75000,11000,87.21,7],
+  [2025,"Q1","2025-01","Warangal","Cardiology","Niva Bupa","Outpatient","Male","Approved","N/A",53000,46000,7000,86.79,4],
+  [2024,"Q2","2024-05","Hyderabad","Emergency","Star Health","Emergency","Female","Denied","Not Specified",92000,30000,62000,32.61,8],
+  [2024,"Q3","2024-08","Vijayawada","Orthopedics","ICICI Lombard","Inpatient","Male","Pending","N/A",75000,54000,21000,72,7],
+  [2024,"Q1","2024-01","Secunderabad","Cardiology","HDFC Ergo","Emergency","Female","Approved","N/A",60000,52000,8000,86.67,5],
+  [2024,"Q4","2024-11","Warangal","Pediatrics","Self-Pay","Outpatient","Male","Denied","Not Specified",44000,0,44000,0,4],
+  [2025,"Q1","2025-02","Hyderabad","Neurology","Star Health","Inpatient","Female","Approved","N/A",88000,77000,11000,87.5,8],
+  [2024,"Q2","2024-06","Visakhapatnam","Emergency","HDFC Ergo","Emergency","Male","Approved","N/A",67000,58000,9000,86.57,6],
+  [2024,"Q3","2024-09","Hyderabad","General Medicine","Niva Bupa","Outpatient","Female","Partial Paid","N/A",52000,36000,16000,69.23,5],
+  [2024,"Q1","2024-02","Vijayawada","Cardiology","Star Health","Inpatient","Male","Approved","N/A",93000,81000,12000,87.1,8],
+  [2024,"Q4","2024-12","Secunderabad","Orthopedics","ICICI Lombard","Outpatient","Female","Denied","Coding Error",79000,0,79000,0,7],
+  [2025,"Q1","2025-03","Visakhapatnam","Pediatrics","HDFC Ergo","Inpatient","Male","Approved","N/A",61000,54000,7000,88.52,5],
+  [2024,"Q2","2024-04","Hyderabad","Neurology","Self-Pay","Emergency","Female","Denied","Not Specified",85000,28000,57000,32.94,7],
+  [2024,"Q3","2024-07","Warangal","Cardiology","ICICI Lombard","Outpatient","Male","Approved","N/A",48000,42000,6000,87.5,4],
+  [2024,"Q1","2024-03","Vijayawada","Emergency","Star Health","Inpatient","Female","Pending","N/A",76000,54000,22000,71.05,7],
+  [2024,"Q4","2024-10","Hyderabad","Pediatrics","HDFC Ergo","Emergency","Male","Approved","N/A",54000,47000,7000,87.04,5],
+  [2025,"Q1","2025-01","Warangal","General Medicine","Niva Bupa","Outpatient","Female","Approved","N/A",40000,35000,5000,87.5,3],
+  [2024,"Q2","2024-05","Secunderabad","Orthopedics","ICICI Lombard","Inpatient","Male","Approved","N/A",87000,76000,11000,87.36,8],
+  [2024,"Q3","2024-08","Vijayawada","Neurology","Star Health","Emergency","Female","Denied","Not Specified",72000,24000,48000,33.33,6],
+  [2024,"Q1","2024-01","Hyderabad","Cardiology","HDFC Ergo","Outpatient","Male","Approved","N/A",65000,57000,8000,87.69,5],
+  [2024,"Q4","2024-11","Visakhapatnam","Emergency","Niva Bupa","Inpatient","Female","Partial Paid","N/A",58000,40000,18000,68.97,5],
+  [2025,"Q1","2025-02","Secunderabad","Pediatrics","Star Health","Outpatient","Male","Approved","N/A",74000,65000,9000,87.84,6],
+  [2024,"Q2","2024-06","Hyderabad","General Medicine","ICICI Lombard","Emergency","Female","Denied","Not Specified",93000,30000,63000,32.26,8],
+  [2024,"Q3","2024-09","Warangal","Orthopedics","HDFC Ergo","Inpatient","Male","Approved","N/A",82000,72000,10000,87.8,7],
+  [2024,"Q1","2024-02","Visakhapatnam","Neurology","Self-Pay","Outpatient","Female","Pending","N/A",57000,40000,17000,70.18,5],
+  [2024,"Q4","2024-12","Vijayawada","Cardiology","Star Health","Emergency","Male","Approved","N/A",89000,78000,11000,87.64,8],
+  [2025,"Q1","2025-03","Hyderabad","Pediatrics","Niva Bupa","Inpatient","Female","Approved","N/A",66000,58000,8000,87.88,6],
+  [2024,"Q2","2024-04","Warangal","Emergency","HDFC Ergo","Emergency","Male","Denied","Not Specified",76000,26000,50000,34.21,7],
+  [2024,"Q3","2024-07","Visakhapatnam","General Medicine","ICICI Lombard","Outpatient","Female","Approved","N/A",51000,45000,6000,88.24,4],
+  [2024,"Q1","2024-03","Secunderabad","Pediatrics","Star Health","Inpatient","Male","Partial Paid","N/A",68000,48000,20000,70.59,6],
+  [2024,"Q4","2024-10","Hyderabad","Neurology","Self-Pay","Emergency","Female","Denied","Not Specified",80000,28000,52000,35,7],
+  [2025,"Q1","2025-01","Vijayawada","Orthopedics","HDFC Ergo","Outpatient","Male","Approved","N/A",59000,52000,7000,88.14,5],
+  [2024,"Q2","2024-05","Secunderabad","Cardiology","Niva Bupa","Inpatient","Female","Approved","N/A",95000,83000,12000,87.37,8],
+  [2024,"Q3","2024-08","Hyderabad","Emergency","Star Health","Outpatient","Male","Pending","N/A",44000,32000,12000,72.73,4],
+  [2024,"Q1","2024-01","Visakhapatnam","General Medicine","HDFC Ergo","Emergency","Female","Denied","Late Filing",73000,0,73000,0,6],
+  [2024,"Q4","2024-11","Warangal","Pediatrics","ICICI Lombard","Inpatient","Male","Approved","N/A",87000,76000,11000,87.36,7],
+  [2025,"Q1","2025-02","Hyderabad","Cardiology","Self-Pay","Emergency","Female","Partial Paid","N/A",62000,42000,20000,67.74,5],
+  [2024,"Q2","2024-06","Vijayawada","Orthopedics","Star Health","Outpatient","Male","Approved","N/A",78000,68000,10000,87.18,7],
+  [2024,"Q3","2024-09","Secunderabad","Neurology","HDFC Ergo","Inpatient","Female","Approved","N/A",55000,48000,7000,87.27,5],
+  [2024,"Q1","2024-02","Warangal","Emergency","Self-Pay","Emergency","Male","Denied","Not Specified",91000,30000,61000,32.97,8],
+  [2024,"Q4","2024-12","Visakhapatnam","Cardiology","Niva Bupa","Outpatient","Female","Approved","N/A",47000,41000,6000,87.23,4],
+  [2025,"Q1","2025-03","Vijayawada","Pediatrics","ICICI Lombard","Emergency","Male","Approved","N/A",72000,63000,9000,87.5,6],
+  [2024,"Q2","2024-04","Hyderabad","General Medicine","HDFC Ergo","Inpatient","Female","Partial Paid","N/A",85000,60000,25000,70.59,7],
+  [2024,"Q3","2024-07","Warangal","Orthopedics","Self-Pay","Outpatient","Male","Denied","Not Specified",67000,22000,45000,32.84,6],
+  [2024,"Q1","2024-03","Vijayawada","Neurology","Star Health","Emergency","Female","Pending","N/A",58000,42000,16000,72.41,5],
+  [2024,"Q4","2024-10","Secunderabad","Emergency","ICICI Lombard","Inpatient","Male","Approved","N/A",93000,82000,11000,88.17,8],
+  [2025,"Q1","2025-01","Hyderabad","General Medicine","HDFC Ergo","Outpatient","Female","Approved","N/A",49000,43000,6000,87.76,4],
+  [2024,"Q2","2024-05","Visakhapatnam","Cardiology","Self-Pay","Inpatient","Male","Denied","Policy Exclusion",79000,0,79000,0,7],
+  [2024,"Q3","2024-08","Hyderabad","Pediatrics","Niva Bupa","Emergency","Female","Approved","N/A",64000,56000,8000,87.5,6],
+  [2024,"Q1","2024-01","Warangal","Orthopedics","Star Health","Inpatient","Male","Approved","N/A",101000,89000,12000,88.12,9],
+  [2024,"Q4","2024-11","Vijayawada","Neurology","HDFC Ergo","Outpatient","Female","Partial Paid","N/A",53000,37000,16000,69.81,5],
+  [2025,"Q1","2025-02","Secunderabad","Emergency","Niva Bupa","Emergency","Male","Denied","Not Specified",75000,26000,49000,34.67,7],
+  [2024,"Q2","2024-06","Hyderabad","Cardiology","ICICI Lombard","Inpatient","Female","Approved","N/A",88000,77000,11000,87.5,8],
+  [2024,"Q3","2024-09","Visakhapatnam","General Medicine","Star Health","Outpatient","Male","Approved","N/A",46000,40000,6000,86.96,4],
+  [2024,"Q1","2024-02","Hyderabad","Pediatrics","HDFC Ergo","Emergency","Female","Denied","Coding Error",82000,0,82000,0,7],
+  [2024,"Q4","2024-12","Warangal","Cardiology","Self-Pay","Outpatient","Male","Pending","N/A",57000,40000,17000,70.18,5],
+  [2025,"Q1","2025-03","Hyderabad","Emergency","Star Health","Inpatient","Female","Approved","N/A",96000,84000,12000,87.5,8],
+  [2024,"Q2","2024-04","Vijayawada","Orthopedics","ICICI Lombard","Emergency","Male","Approved","N/A",74000,65000,9000,87.84,7],
+  [2024,"Q3","2024-07","Secunderabad","Pediatrics","HDFC Ergo","Inpatient","Female","Pending","N/A",63000,46000,17000,73.02,6],
+  [2024,"Q1","2024-03","Warangal","Neurology","Niva Bupa","Outpatient","Male","Approved","N/A",50000,44000,6000,88,4],
+  [2024,"Q4","2024-10","Visakhapatnam","Emergency","Star Health","Emergency","Female","Denied","Not Specified",81000,27000,54000,33.33,7],
+  [2025,"Q1","2025-01","Hyderabad","General Medicine","ICICI Lombard","Inpatient","Male","Partial Paid","N/A",70000,50000,20000,71.43,6],
+  [2024,"Q2","2024-05","Warangal","Cardiology","HDFC Ergo","Outpatient","Female","Approved","N/A",56000,49000,7000,87.5,5],
+  [2024,"Q3","2024-08","Hyderabad","Orthopedics","Self-Pay","Emergency","Male","Denied","Policy Exclusion",90000,0,90000,0,8],
+  [2024,"Q1","2024-01","Secunderabad","Emergency","Star Health","Inpatient","Female","Approved","N/A",77000,67000,10000,87.01,7],
+  [2024,"Q4","2024-11","Hyderabad","Pediatrics","Niva Bupa","Outpatient","Male","Approved","N/A",61000,53000,8000,86.89,5],
+  [2025,"Q1","2025-02","Vijayawada","Cardiology","ICICI Lombard","Emergency","Female","Pending","N/A",84000,60000,24000,71.43,7],
+  [2024,"Q2","2024-06","Secunderabad","Neurology","Self-Pay","Inpatient","Male","Denied","Not Specified",95000,32000,63000,33.68,8],
+  [2024,"Q3","2024-09","Vijayawada","Emergency","HDFC Ergo","Outpatient","Female","Approved","N/A",52000,46000,6000,88.46,4],
+  [2024,"Q1","2024-02","Warangal","General Medicine","Star Health","Emergency","Male","Approved","N/A",68000,60000,8000,88.24,6],
+  [2024,"Q4","2024-12","Hyderabad","Orthopedics","Niva Bupa","Inpatient","Female","Partial Paid","N/A",89000,62000,27000,69.66,8],
+  [2025,"Q1","2025-03","Secunderabad","Pediatrics","HDFC Ergo","Emergency","Male","Denied","Not Specified",73000,0,73000,0,6],
+  [2024,"Q2","2024-04","Hyderabad","Cardiology","ICICI Lombard","Outpatient","Female","Approved","N/A",59000,52000,7000,88.14,5],
+  [2024,"Q3","2024-07","Vijayawada","Neurology","Self-Pay","Emergency","Male","Denied","Late Filing",76000,0,76000,0,7],
+  [2024,"Q1","2024-03","Visakhapatnam","Orthopedics","Star Health","Inpatient","Female","Approved","N/A",87000,76000,11000,87.36,8],
+  [2024,"Q4","2024-10","Secunderabad","General Medicine","HDFC Ergo","Outpatient","Male","Approved","N/A",44000,39000,5000,88.64,4],
+  [2025,"Q1","2025-01","Warangal","Emergency","ICICI Lombard","Inpatient","Female","Pending","N/A",80000,58000,22000,72.5,7],
+  [2024,"Q2","2024-05","Vijayawada","Pediatrics","Star Health","Emergency","Male","Approved","N/A",65000,57000,8000,87.69,6],
+  [2024,"Q3","2024-08","Warangal","Cardiology","Self-Pay","Outpatient","Female","Partial Paid","N/A",51000,36000,15000,70.59,5],
+  [2024,"Q1","2024-01","Hyderabad","Orthopedics","HDFC Ergo","Inpatient","Male","Approved","N/A",92000,81000,11000,88.04,8],
+  [2024,"Q4","2024-11","Vijayawada","Emergency","Niva Bupa","Emergency","Female","Denied","Not Specified",78000,26000,52000,33.33,7],
+  [2025,"Q1","2025-02","Hyderabad","Pediatrics","ICICI Lombard","Outpatient","Male","Approved","N/A",55000,48000,7000,87.27,5],
+  [2024,"Q2","2024-06","Warangal","Neurology","HDFC Ergo","Inpatient","Female","Approved","N/A",83000,73000,10000,87.95,7],
+  [2024,"Q3","2024-09","Hyderabad","General Medicine","Star Health","Emergency","Male","Denied","Not Specified",67000,22000,45000,32.84,6],
+  [2024,"Q1","2024-02","Visakhapatnam","Cardiology","ICICI Lombard","Outpatient","Female","Approved","N/A",48000,42000,6000,87.5,4],
+  [2024,"Q4","2024-12","Warangal","Pediatrics","Self-Pay","Inpatient","Male","Pending","N/A",75000,54000,21000,72,7],
+  [2025,"Q1","2025-03","Vijayawada","Orthopedics","HDFC Ergo","Emergency","Female","Approved","N/A",91000,80000,11000,87.91,8],
+  [2024,"Q2","2024-04","Secunderabad","Emergency","Niva Bupa","Emergency","Male","Denied","Not Specified",84000,28000,56000,33.33,7],
+  [2024,"Q3","2024-07","Hyderabad","Neurology","Star Health","Inpatient","Female","Approved","N/A",60000,53000,7000,88.33,5],
+  [2024,"Q1","2024-03","Warangal","Cardiology","HDFC Ergo","Emergency","Male","Partial Paid","N/A",72000,52000,20000,72.22,6],
+  [2024,"Q4","2024-10","Visakhapatnam","Orthopedics","ICICI Lombard","Outpatient","Female","Approved","N/A",57000,50000,7000,87.72,5],
+  [2025,"Q1","2025-01","Hyderabad","Emergency","Star Health","Inpatient","Male","Denied","Coding Error",88000,0,88000,0,8],
+  [2024,"Q2","2024-05","Vijayawada","General Medicine","Self-Pay","Outpatient","Female","Approved","N/A",43000,38000,5000,88.37,4],
+  [2024,"Q3","2024-08","Secunderabad","Cardiology","Niva Bupa","Inpatient","Male","Approved","N/A",97000,85000,12000,87.63,8],
+  [2024,"Q1","2024-01","Hyderabad","Pediatrics","Star Health","Emergency","Female","Denied","Policy Exclusion",80000,0,80000,0,7],
+  [2024,"Q4","2024-11","Warangal","Orthopedics","HDFC Ergo","Inpatient","Male","Approved","N/A",104000,91000,13000,87.5,9],
+];
+
+// ═══════════════════════════════════════════════════════
+// FILTER STATE
+// ═══════════════════════════════════════════════════════
+const filters = { year:'all', quarter:'all', location:'all', department:'all', insurer:'all', visitType:'all', gender:'all' };
+
+function setFilter(key, val, btn) {
+  filters[key] = val;
+  if (btn) {
+    const group = btn.parentElement;
+    group.querySelectorAll('.btn-filter').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+  }
+  updateDashboard();
+}
+
+function resetAllFilters() {
+  Object.keys(filters).forEach(k => filters[k] = 'all');
+  document.querySelectorAll('.btn-filter').forEach(b => {
+    b.classList.toggle('active', b.dataset.value === 'all');
+  });
+  document.querySelectorAll('select.filter-select').forEach(s => s.value = 'all');
+  updateDashboard();
+}
+
+function getFiltered() {
+  return RAW_DATA.filter(r => {
+    const [yr, qtr, mon, loc, dept, ins, vt, gen] = r;
+    if (filters.year !== 'all' && String(yr) !== filters.year) return false;
+    if (filters.quarter !== 'all' && qtr !== filters.quarter) return false;
+    if (filters.location !== 'all' && loc !== filters.location) return false;
+    if (filters.department !== 'all' && dept !== filters.department) return false;
+    if (filters.insurer !== 'all' && ins !== filters.insurer) return false;
+    if (filters.visitType !== 'all' && vt !== filters.visitType) return false;
+    if (filters.gender !== 'all' && gen !== filters.gender) return false;
+    return true;
+  });
+}
+
+// ═══════════════════════════════════════════════════════
+// HELPERS
+// ═══════════════════════════════════════════════════════
+const fmtRs = v => v >= 100000 ? `₹${(v/100000).toFixed(1)}L` : `₹${(v/1000).toFixed(0)}K`;
+const fmtRsFull = v => `₹${(v/100000).toFixed(2)}L`;
+
+// ═══════════════════════════════════════════════════════
+// CHARTS (store refs to destroy/recreate)
+// ═══════════════════════════════════════════════════════
+let charts = {};
+function destroyChart(id) { if (charts[id]) { charts[id].destroy(); charts[id] = null; } }
+
+const CHART_DEFAULTS = {
+  plugins: { legend: { labels: { color: '#7a8fb8', font: { family: 'Space Grotesk', size: 11 } } } },
+  scales: {}
+};
+
+function darkAxes(xLabel='', yLabel='') {
+  return {
+    x: {
+      ticks: { color: '#7a8fb8', font: { family: 'Space Grotesk', size: 10 } },
+      grid: { color: 'rgba(30,47,77,0.6)' },
+      title: xLabel ? { display: true, text: xLabel, color: '#7a8fb8', font: { size: 10 } } : {}
+    },
+    y: {
+      ticks: { color: '#7a8fb8', font: { family: 'Space Grotesk', size: 10 } },
+      grid: { color: 'rgba(30,47,77,0.6)' },
+      title: yLabel ? { display: true, text: yLabel, color: '#7a8fb8', font: { size: 10 } } : {}
+    }
+  };
+}
+
+// ═══════════════════════════════════════════════════════
+// UPDATE DASHBOARD
+// ═══════════════════════════════════════════════════════
+function updateDashboard() {
+  const data = getFiltered();
+
+  // ── KPIs ──
+  const totalClaims = data.length;
+  const totalClaimed = data.reduce((s,r) => s + (r[10]||0), 0);
+  const totalPaid = data.reduce((s,r) => s + (r[11]||0), 0);
+  const totalUnpaid = data.reduce((s,r) => s + (r[12]||0), 0);
+  const denied = data.filter(r => r[8]==='Denied').length;
+  const denialRate = totalClaims ? (denied/totalClaims*100) : 0;
+  const recRates = data.filter(r => r[13] > 0).map(r => r[13]);
+  const avgRec = recRates.length ? recRates.reduce((a,b)=>a+b,0)/recRates.length : 0;
+  const paidPct = totalClaimed ? (totalPaid/totalClaimed*100) : 0;
+
+  document.getElementById('kpi-claims').textContent = totalClaims.toLocaleString();
+  document.getElementById('kpi-claimed').textContent = fmtRs(totalClaimed);
+  document.getElementById('kpi-paid').textContent = fmtRs(totalPaid);
+  document.getElementById('kpi-paid-sub').textContent = `${paidPct.toFixed(1)}% of claimed`;
+  document.getElementById('kpi-denial').textContent = `${denialRate.toFixed(1)}%`;
+  document.getElementById('kpi-denial-sub').textContent = `${denied} denied claims`;
+  document.getElementById('kpi-recovery').textContent = `${avgRec.toFixed(1)}%`;
+
+  // Color the KPI cards
+  const paidCard = document.getElementById('kpi-paid-card');
+  paidCard.className = 'kpi-card ' + (paidPct >= 70 ? 'green' : paidPct >= 50 ? 'amber' : 'red');
+
+  const denialCard = document.getElementById('kpi-denial-card');
+  denialCard.className = 'kpi-card ' + (denialRate > 25 ? 'red' : denialRate > 15 ? 'amber' : 'green');
+
+  const recCard = document.getElementById('kpi-recovery-card');
+  recCard.className = 'kpi-card ' + (avgRec >= 75 ? 'green' : avgRec >= 50 ? 'amber' : 'red');
+
+  // ── INSIGHTS ──
+  const deniedRows = data.filter(r => r[8]==='Denied' && r[9]!=='N/A');
+  const drCounts = {};
+  deniedRows.forEach(r => { drCounts[r[9]] = (drCounts[r[9]]||0)+1; });
+  const topDR = Object.entries(drCounts).sort((a,b)=>b[1]-a[1])[0];
+  const totalDeniedWithReason = deniedRows.length;
+  if (topDR && totalDeniedWithReason > 0) {
+    const pct = (topDR[1]/totalDeniedWithReason*100).toFixed(1);
+    document.getElementById('insight1').innerHTML = `<strong style="color:var(--amber)">${topDR[0]}</strong> accounts for <strong style="color:var(--amber)">${pct}%</strong> of all denied claims this period — requires process review.`;
+  }
+
+  // Lowest recovery dept
+  const deptRec = {};
+  ['Cardiology','Pediatrics','Emergency','General Medicine','Neurology','Orthopedics'].forEach(d => {
+    const rows = data.filter(r => r[4]===d && r[13]>0);
+    if (rows.length) deptRec[d] = rows.reduce((s,r)=>s+r[13],0)/rows.length;
+  });
+  const lowestDept = Object.entries(deptRec).sort((a,b)=>a[1]-b[1])[0];
+  if (lowestDept) {
+    const deptUnpaid = data.filter(r=>r[4]===lowestDept[0]).reduce((s,r)=>s+(r[12]||0),0);
+    document.getElementById('insight2').innerHTML = `<strong style="color:var(--red)">${lowestDept[0]}</strong> at <strong style="color:var(--red)">${lowestDept[1].toFixed(1)}%</strong> avg recovery — ${fmtRs(deptUnpaid)} unpaid at risk. Immediate COO attention needed.`;
+  }
+
+  // ── MONTHLY LINE CHART ──
+  const MONTHS = ['2024-01','2024-02','2024-03','2024-04','2024-05','2024-06',
+                  '2024-07','2024-08','2024-09','2024-10','2024-11','2024-12',
+                  '2025-01','2025-02','2025-03'];
+  const monthLabels = MONTHS.map(m => {
+    const [y,mo] = m.split('-');
+    return ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][+mo-1]+' '+y.slice(2);
+  });
+  const mClaimed = MONTHS.map(m => data.filter(r=>r[2]===m).reduce((s,r)=>s+(r[10]||0),0));
+  const mPaid    = MONTHS.map(m => data.filter(r=>r[2]===m).reduce((s,r)=>s+(r[11]||0),0));
+  const avgClaim = mClaimed.reduce((a,b)=>a+b,0)/MONTHS.length;
+
+  destroyChart('line');
+  charts['line'] = new Chart(document.getElementById('lineChart'), {
+    type: 'line',
+    data: {
+      labels: monthLabels,
+      datasets: [
+        {
+          label: 'Claimed',
+          data: mClaimed,
+          borderColor: '#00d4ff', backgroundColor: 'rgba(0,212,255,0.08)',
+          borderWidth: 2, pointRadius: 3, pointBackgroundColor: '#00d4ff',
+          fill: true, tension: 0.3
+        },
+        {
+          label: 'Paid',
+          data: mPaid,
+          borderColor: '#2ed573', backgroundColor: 'rgba(46,213,115,0.05)',
+          borderWidth: 2, pointRadius: 3, pointBackgroundColor: '#2ed573',
+          borderDash: [5,3], fill: false, tension: 0.3
+        }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { labels: { color: '#7a8fb8', font: { family:'Space Grotesk',size:11 }, boxWidth:16 } },
+        tooltip: {
+          backgroundColor: '#162040', borderColor: '#1e2f4d', borderWidth: 1,
+          callbacks: {
+            label: ctx => ` ${ctx.dataset.label}: ${fmtRsFull(ctx.raw)}`
+          }
+        },
+        annotation: {
+          annotations: {
+            avgLine: {
+              type: 'line', yMin: avgClaim, yMax: avgClaim,
+              borderColor: 'rgba(255,165,2,0.5)', borderWidth: 1, borderDash: [4,4],
+              label: { display: true, content: 'Avg', color: '#ffa502', font: { size: 9 } }
+            }
+          }
+        }
+      },
+      scales: {
+        x: { ticks: { color:'#7a8fb8', font:{family:'Space Grotesk',size:9}, maxRotation:45 }, grid:{color:'rgba(30,47,77,0.5)'} },
+        y: { ticks: { color:'#7a8fb8', font:{family:'Space Grotesk',size:10}, callback: v => fmtRs(v) }, grid:{color:'rgba(30,47,77,0.5)'} }
+      }
+    }
+  });
+
+  // ── DONUT CHART ──
+  const statusCounts = {};
+  ['Approved','Denied','Pending','Partial Paid'].forEach(s => {
+    statusCounts[s] = data.filter(r=>r[8]===s).length;
+  });
+  destroyChart('donut');
+  charts['donut'] = new Chart(document.getElementById('donutChart'), {
+    type: 'doughnut',
+    data: {
+      labels: Object.keys(statusCounts),
+      datasets: [{
+        data: Object.values(statusCounts),
+        backgroundColor: ['rgba(46,213,115,0.85)','rgba(255,71,87,0.85)','rgba(255,165,2,0.85)','rgba(0,212,255,0.85)'],
+        borderColor: '#0d1526', borderWidth: 2
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      cutout: '65%',
+      plugins: {
+        legend: { position:'right', labels:{color:'#7a8fb8',font:{family:'Space Grotesk',size:10},boxWidth:12} },
+        tooltip: {
+          backgroundColor:'#162040', borderColor:'#1e2f4d', borderWidth:1,
+          callbacks: {
+            label: ctx => ` ${ctx.label}: ${ctx.raw} (${(ctx.raw/totalClaims*100).toFixed(1)}%)`
+          }
+        }
+      }
+    },
+    plugins: [{
+      id: 'centreText',
+      afterDraw(chart) {
+        const { ctx, chartArea: { left, right, top, bottom } } = chart;
+        const cx = (left+right)/2, cy = (top+bottom)/2;
+        ctx.save();
+        ctx.textAlign = 'center';
+        ctx.fillStyle = '#e8eef8';
+        ctx.font = 'bold 18px JetBrains Mono, monospace';
+        ctx.fillText(totalClaims, cx, cy+2);
+        ctx.font = '9px Space Grotesk';
+        ctx.fillStyle = '#7a8fb8';
+        ctx.fillText('CLAIMS', cx, cy+16);
+        ctx.restore();
+      }
+    }]
+  });
+
+  // ── DENIAL REASONS ──
+  const drFiltered = data.filter(r => r[8]==='Denied' && r[9]!=='N/A');
+  const drMap = {};
+  drFiltered.forEach(r => { drMap[r[9]] = (drMap[r[9]]||0)+1; });
+  const drSorted = Object.entries(drMap).sort((a,b)=>b[1]-a[1]);
+  const totalDeniedForReason = drFiltered.length || 1;
+
+  destroyChart('denial');
+  charts['denial'] = new Chart(document.getElementById('denialChart'), {
+    type: 'bar',
+    data: {
+      labels: drSorted.map(([k])=>k),
+      datasets: [{
+        label: 'Count',
+        data: drSorted.map(([,v])=>v),
+        backgroundColor: drSorted.map(([,v],i) => {
+          const t = i/Math.max(drSorted.length-1,1);
+          const r = Math.round(255*t + 255*(1-t)*0.96);
+          const g = Math.round(71*t + 165*(1-t)*0.8);
+          const b = Math.round(87*t + 2*(1-t));
+          return `rgba(${r},${g},${b},0.85)`;
+        }),
+        borderWidth: 0, borderRadius: 3
+      }]
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor:'#162040', borderColor:'#1e2f4d', borderWidth:1,
+          callbacks: {
+            label: ctx => ` Count: ${ctx.raw} (${(ctx.raw/totalDeniedForReason*100).toFixed(1)}%)`
+          }
+        }
+      },
+      scales: {
+        x: { ticks:{color:'#7a8fb8',font:{family:'Space Grotesk',size:10}}, grid:{color:'rgba(30,47,77,0.5)'} },
+        y: { ticks:{color:'#e8eef8',font:{family:'Space Grotesk',size:10}}, grid:{display:false} }
+      }
+    }
+  });
+
+  // ── DEPT CLUSTERED BAR ──
+  const DEPTS = ['Cardiology','Pediatrics','Emergency','General Medicine','Neurology','Orthopedics'];
+  const deptClaimed = DEPTS.map(d => data.filter(r=>r[4]===d).reduce((s,r)=>s+(r[10]||0),0));
+  const deptPaid    = DEPTS.map(d => data.filter(r=>r[4]===d).reduce((s,r)=>s+(r[11]||0),0));
+  const deptOrder   = DEPTS.map((d,i)=>({d,i,v:deptClaimed[i]})).sort((a,b)=>b.v-a.v);
+
+  destroyChart('dept');
+  charts['dept'] = new Chart(document.getElementById('deptChart'), {
+    type: 'bar',
+    data: {
+      labels: deptOrder.map(o=>o.d.replace(' ','\n')),
+      datasets: [
+        { label:'Claimed', data: deptOrder.map(o=>deptClaimed[o.i]), backgroundColor:'rgba(0,212,255,0.8)', borderWidth:0, borderRadius:3 },
+        { label:'Paid',    data: deptOrder.map(o=>deptPaid[o.i]),    backgroundColor:'rgba(46,213,115,0.8)', borderWidth:0, borderRadius:3 }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { labels:{color:'#7a8fb8',font:{family:'Space Grotesk',size:10},boxWidth:12} },
+        tooltip: {
+          backgroundColor:'#162040', borderColor:'#1e2f4d', borderWidth:1,
+          callbacks: { label: ctx => ` ${ctx.dataset.label}: ${fmtRsFull(ctx.raw)}` }
+        }
+      },
+      scales: {
+        x: { ticks:{color:'#7a8fb8',font:{family:'Space Grotesk',size:9}}, grid:{display:false} },
+        y: { ticks:{color:'#7a8fb8',font:{family:'Space Grotesk',size:10}, callback:v=>fmtRs(v)}, grid:{color:'rgba(30,47,77,0.5)'} }
+      }
+    }
+  });
+
+  // ── INSURER STACKED BAR ──
+  const INSURERS = ['Self-Pay','Star Health','HDFC Ergo','ICICI Lombard','Niva Bupa'];
+  const insClaimed = INSURERS.map(i => data.filter(r=>r[5]===i).reduce((s,r)=>s+(r[10]||0),0));
+  const insUnpaid  = INSURERS.map(i => data.filter(r=>r[5]===i).reduce((s,r)=>s+(r[12]||0),0));
+
+  destroyChart('insurer');
+  charts['insurer'] = new Chart(document.getElementById('insurerChart'), {
+    type: 'bar',
+    data: {
+      labels: INSURERS,
+      datasets: [
+        { label:'Claimed', data: insClaimed, backgroundColor: INSURERS.map(i => i==='Self-Pay'?'rgba(255,165,2,0.85)':'rgba(0,212,255,0.75)'), borderWidth:0, borderRadius:[3,3,0,0] },
+        { label:'Unpaid',  data: insUnpaid,  backgroundColor: INSURERS.map(i => i==='Self-Pay'?'rgba(255,71,87,0.85)':'rgba(255,71,87,0.6)'), borderWidth:0 }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { labels:{color:'#7a8fb8',font:{family:'Space Grotesk',size:10},boxWidth:12} },
+        tooltip: {
+          backgroundColor:'#162040', borderColor:'#1e2f4d', borderWidth:1,
+          callbacks: { label: ctx => ` ${ctx.dataset.label}: ${fmtRsFull(ctx.raw)}` }
+        }
+      },
+      scales: {
+        x: { stacked:true, ticks:{color:'#7a8fb8',font:{family:'Space Grotesk',size:9}}, grid:{display:false} },
+        y: { stacked:true, ticks:{color:'#7a8fb8',font:{family:'Space Grotesk',size:10},callback:v=>fmtRs(v)}, grid:{color:'rgba(30,47,77,0.5)'} }
+      }
+    }
+  });
+
+  // ── VISIT TYPE COMBO ──
+  const VT = ['Inpatient','Outpatient','Emergency'];
+  const vtCounts = VT.map(v => data.filter(r=>r[6]===v).length);
+  const vtAvgClaim = VT.map(v => {
+    const rows = data.filter(r=>r[6]===v && r[10]>0);
+    return rows.length ? rows.reduce((s,r)=>s+r[10],0)/rows.length : 0;
+  });
+
+  destroyChart('visit');
+  charts['visit'] = new Chart(document.getElementById('visitChart'), {
+    type: 'bar',
+    data: {
+      labels: VT,
+      datasets: [
+        { label:'Claims', data: vtCounts, backgroundColor:'rgba(255,165,2,0.8)', borderWidth:0, borderRadius:4, yAxisID:'y' },
+        { label:'Avg Claim', data: vtAvgClaim, type:'line', borderColor:'#00d4ff', backgroundColor:'rgba(0,212,255,0.1)', borderWidth:2, pointRadius:4, pointBackgroundColor:'#00d4ff', yAxisID:'y1', fill:false }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { labels:{color:'#7a8fb8',font:{family:'Space Grotesk',size:10},boxWidth:12} },
+        tooltip: {
+          backgroundColor:'#162040', borderColor:'#1e2f4d', borderWidth:1,
+          callbacks: { label: ctx => ctx.datasetIndex===0 ? ` Claims: ${ctx.raw}` : ` Avg Claim: ${fmtRsFull(ctx.raw)}` }
+        }
+      },
+      scales: {
+        x: { ticks:{color:'#7a8fb8',font:{family:'Space Grotesk',size:11}}, grid:{display:false} },
+        y: { position:'left', ticks:{color:'#ffa502',font:{family:'Space Grotesk',size:10}}, grid:{color:'rgba(30,47,77,0.5)'}, title:{display:true,text:'Count',color:'#ffa502',font:{size:9}} },
+        y1: { position:'right', ticks:{color:'#00d4ff',font:{family:'Space Grotesk',size:10},callback:v=>fmtRs(v)}, grid:{drawOnChartArea:false}, title:{display:true,text:'Avg ₹',color:'#00d4ff',font:{size:9}} }
+      }
+    }
+  });
+
+  // ── SCORECARD TABLE ──
+  const tbody = document.getElementById('scorecardBody');
+  tbody.innerHTML = '';
+  let totClaims=0, totClaimed2=0, totPaid2=0, totDenied2=0, totLOS=0, losCount=0;
+
+  DEPTS.forEach(d => {
+    const rows = data.filter(r=>r[4]===d);
+    if (!rows.length) return;
+    const n = rows.length;
+    const cl = rows.reduce((s,r)=>s+(r[10]||0),0);
+    const pa = rows.reduce((s,r)=>s+(r[11]||0),0);
+    const dn = rows.filter(r=>r[8]==='Denied').length;
+    const dr = n ? dn/n*100 : 0;
+    const recR = rows.filter(r=>r[13]>0);
+    const avgR = recR.length ? recR.reduce((s,r)=>s+r[13],0)/recR.length : 0;
+    const losR = rows.filter(r=>r[14]>0);
+    const avgLos = losR.length ? losR.reduce((s,r)=>s+r[14],0)/losR.length : 0;
+    const avgCl = n ? cl/n : 0;
+
+    totClaims+=n; totClaimed2+=cl; totPaid2+=pa; totDenied2+=dn;
+    losR.forEach(r=>{totLOS+=r[14];losCount++;});
+
+    const drBadge = dr > 30 ? 'badge-red' : dr > 20 ? 'badge-amber' : 'badge-green';
+    const recBadge = avgR < 50 ? 'badge-red' : avgR < 70 ? 'badge-amber' : 'badge-green';
+    const losBadge = avgLos > 5 ? 'badge-amber' : 'badge-green';
+
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${d}</td>
+      <td>${n}</td>
+      <td>${fmtRs(avgCl)}</td>
+      <td><span class="badge ${drBadge}">${dr.toFixed(1)}%</span></td>
+      <td><span class="badge ${recBadge}">${avgR.toFixed(1)}%</span></td>
+      <td><span class="badge ${losBadge}">${avgLos.toFixed(1)}d</span></td>
+    `;
+    tbody.appendChild(tr);
+  });
+
+  const totDR = totClaims ? totDenied2/totClaims*100 : 0;
+  const totAvgCl = totClaims ? totClaimed2/totClaims : 0;
+  const totAvgRec = data.filter(r=>r[13]>0).reduce((s,r)=>s+r[13],0) / Math.max(data.filter(r=>r[13]>0).length,1);
+  const totAvgLOS = losCount ? totLOS/losCount : 0;
+
+  document.getElementById('scorecardFoot').innerHTML = `
+    <tr>
+      <td>TOTAL</td>
+      <td>${totClaims}</td>
+      <td>${fmtRs(totAvgCl)}</td>
+      <td>${totDR.toFixed(1)}%</td>
+      <td>${totAvgRec.toFixed(1)}%</td>
+      <td>${totAvgLOS.toFixed(1)}d</td>
+    </tr>`;
+}
+
+// ═══════════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════════
+document.getElementById('refreshTime').textContent = new Date().toLocaleString('en-IN', {
+  dateStyle: 'medium', timeStyle: 'short'
+});
+
+updateDashboard();
+</script>
+</body>
+</html>
