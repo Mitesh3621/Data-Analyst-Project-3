@@ -60,7 +60,7 @@ By analyzing claims data across multiple dimensions — department, insurer, vis
 
 ## Live Demo
 
-🔗 [View Live Dashboard](https://mitesh3621.github.io/Data-Analyst-Project-2/healthcare_dashboard.html)
+🔗 [View Live Dashboard](https://mitesh3621.github.io/Data-Analyst-Project-3/healthcare_dashboard.html)
 
 ---
 
